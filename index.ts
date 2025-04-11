@@ -1,62 +1,47 @@
-import puppeteer from 'puppeteer';
+import puppeteer, { Page } from 'puppeteer';
 
-declare global {
-  interface Window {
-    dataLayer: any[];
-  }
+interface Product {
+  name: string;
+  price: string;
 }
 
-async function prisaScraper() {
+(async () => {
   const browser = await puppeteer.launch({ headless: false });
-  const page = await browser.newPage();
+  const page: Page = await browser.newPage();
 
+  // Iniciar sesión
   await page.goto('https://www.prisa.cl/customer/user/login');
-  console.log("ingrese a la pagina")
+  await page.type('#userNameSignIn', '77.235.846-6');
+  await page.type('#passwordSignIn', 'Grulla22.');
+  await page.click('#start_login');
+  console.log("se inicio sesion correctamente")
+  await page.waitForNavigation();
 
-  await page.evaluate(timeout => new Promise(resolve => setTimeout(resolve, timeout)), 1000); // Esperar 1 segundo
-  await page.waitForSelector('#userNameSignIn');
-  await page.evaluate(() => {
-    (document.querySelector('#userNameSignIn') as HTMLInputElement).value = '77.235.846-6';
-  });
-  console.log("ingrese el rut")
-  console.log('userNameSignIn:', await page.$eval('#userNameSignIn', (el: any) => el.value));
-  await page.waitForSelector('#passwordSignIn');
-  await page.evaluate(() => {
-    (document.querySelector('#passwordSignIn') as HTMLInputElement).value = 'Grulla22.';
-  });
-  console.log("ingrese el password")
-  console.log('passwordSignIn:', await page.$eval('#passwordSignIn', (el: any) => el.value));
-
-  // Guardar el HTML de la página
-  //const html = await page.content();
-  //require('fs').writeFileSync('page.html', html);
-
-  await page.evaluate(() => {
-    (document.querySelector('#start_login') as HTMLElement)!.click();
-  });
-
-  await page.waitForNavigation({ timeout: 5000 });
-
-  // Navegar a la página "Papelería de Oficina"
+  // Ir a la página de papelería de oficina
   await page.goto('https://www.prisa.cl/papeleria-de-oficina');
-  console.log('Navegando a Papelería de Oficina');
 
-  // Imprimir la URL actual
-  console.log('URL actual:', page.url());
+  // Obtener los productos y precios
+  const productos: Product[] = await page.evaluate(() => {
+    const productElements = document.querySelectorAll('.product-item');
+    const productList: Product[] = [];
 
-  // Extract user information from dataLayer
-  const dataLayerInfo = await page.evaluate(() => {
-    return window.dataLayer.find(item => item.customerUserId)?.customerUserId;
+    productElements.forEach(productElement => {
+      const nameElement = productElement.querySelector('.product-item__name');
+      const priceElement = productElement.querySelector('.product-item__price .product-price__value');
+
+      const name = nameElement?.textContent?.trim() || '';
+      const price = priceElement?.textContent?.trim() || '';
+
+      productList.push({ name, price });
+    });
+
+    return productList;
   });
 
-  console.log('User ID:', dataLayerInfo);
+  // Imprimir los productos y precios
+  console.log(productos);
 
-  // Get the HTML of the page
-  const html = await page.content();
-  console.log(html);
-
-  // Cerrar el navegador
-  await browser.close();
-}
-
-prisaScraper();
+  // Mantener la página abierta
+  // await page.waitForTimeout(50000); // Mantener la página abierta por 50 segundos
+  // await browser.close();
+})();
